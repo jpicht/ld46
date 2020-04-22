@@ -3,6 +3,10 @@ all: dist/main.wasm dist/wasm_exec.js dist/index.html dist/gfx.png dist/.htacces
 dist/main.wasm: Makefile
 	GOOS=js GOARCH=wasm go build -o $@
 
+ifndef GOROOT
+GOROOT=$(shell go env | grep GOROOT | cut -d'"' -f 2)
+endif
+
 dist/wasm_exec.js: $(GOROOT)/misc/wasm/wasm_exec.js dist
 	cp $< $@
 
