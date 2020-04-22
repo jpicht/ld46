@@ -44,6 +44,7 @@ func (p *playing) Init() {
 	p.textManager.New("build_info", 5, 270).SetContent("Hover your mouse over a free building spot,\nthen use keyboard to build:")
 	p.textManager.New("brain", 5, 288).SetContent("[1]: Brain (passive income) - Cost: " + strconv.Itoa(int(keyPlaceBuildingMapping["1"].cost())))
 	p.textManager.New("neuron", 5, 294).SetContent("[2]: Neuron (weapon)        - Cost: " + strconv.Itoa(int(keyPlaceBuildingMapping["2"].cost())))
+	p.textManager.New("demolish", 270, 294).SetContent("[d]: Demolish building")
 	p.textManager.New("points", 5, 17).SetContent("Points: 0")
 	p.textManager.New("quit_x", 270, 5).SetContent("Press X to exit level")
 }
@@ -89,6 +90,24 @@ func (p *playing) HandleKeyEvent(event engine.KeyEvent) *engine.Transition {
 	if event.Key == "x" {
 		p.hiscoreLists.Add(p.levels.chosen, "you", p.points())
 		return engine.NewTransition(gameOverStateID)
+	}
+	if event.Key == "d" {
+		lvl := p.levels.ChosenLevel()
+
+		// Far from any field.
+		if !lvl.isOnGrid(p.gridCursor.X, p.gridCursor.Y) {
+			return nil
+		}
+		// Field does not contain building.
+		if _, ok := p.buildings[p.gridCursor]; !ok {
+			return nil
+		}
+
+		delete(p.buildings, p.gridCursor)
+
+		p.calculateIncomePerSecond()
+
+		return nil
 	}
 	if placeBuilding, ok := keyPlaceBuildingMapping[event.Key]; ok {
 		// Too expensive.
