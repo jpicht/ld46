@@ -44,6 +44,7 @@ func (p *playing) Init() {
 	p.textManager.New("build_info", 5, 270).SetContent("Hover your mouse over a free building spot,\nthen use keyboard to build:")
 	p.textManager.New("brain", 5, 288).SetContent("[1]: Brain (passive income) - Cost: " + strconv.Itoa(int(keyPlaceBuildingMapping["1"].cost())))
 	p.textManager.New("neuron", 5, 294).SetContent("[2]: Neuron (weapon)        - Cost: " + strconv.Itoa(int(keyPlaceBuildingMapping["2"].cost())))
+	p.textManager.New("upgrade", 270, 288).SetContent("[u]: Upgrade building")
 	p.textManager.New("demolish", 270, 294).SetContent("[d]: Demolish building")
 	p.textManager.New("points", 5, 17).SetContent("Points: 0")
 	p.textManager.New("quit_x", 270, 5).SetContent("Press X to exit level")
@@ -83,6 +84,13 @@ type incomeProviderBuilding interface {
 	IncomePerSecond() float64
 }
 
+type upgradableBuilding interface {
+	Cost() float64
+	Level() int
+	Upgradable() bool
+	Upgrade()
+}
+
 func (p *playing) HandleKeyEvent(event engine.KeyEvent) *engine.Transition {
 	if event.Type != engine.KeyUp {
 		return nil
@@ -104,6 +112,35 @@ func (p *playing) HandleKeyEvent(event engine.KeyEvent) *engine.Transition {
 		}
 
 		delete(p.buildings, p.gridCursor)
+
+		p.calculateIncomePerSecond()
+
+		return nil
+	}
+	if event.Key == "u" {
+		lvl := p.levels.ChosenLevel()
+
+		// Far from any field.
+		if !lvl.isOnGrid(p.gridCursor.X, p.gridCursor.Y) {
+			return nil
+		}
+
+		currentBuilding, ok := p.buildings[p.gridCursor]
+
+		// Field does not contain building.
+		if !ok {
+			return nil
+		}
+
+		if upgradable, ok := currentBuilding.effect.(upgradableBuilding); ok {
+			if upgradable.Cost() > p.resources {
+				return nil
+			}
+
+			p.resources -= upgradable.Cost()
+
+			upgradable.Upgrade()
+		}
 
 		p.calculateIncomePerSecond()
 
@@ -205,6 +242,18 @@ func (p *playing) Objects() map[string][]engine.Object {
 				Animation: p.buildings[v].animation,
 			},
 		)
+		if u, ok := p.buildings[v].effect.(upgradableBuilding); ok {
+			t := &text{
+				tm: p.textManager,
+				x:  p.buildings[v].x,
+				y:  p.buildings[v].y,
+			}
+			t.SetContent("L" + strconv.Itoa(u.Level()+1))
+			objects["entities"] = append(
+				objects["entities"],
+				t.objects...,
+			)
+		}
 	}
 
 	objects["entities"] = append(objects["entities"], p.responsibilites.Objects()...)
